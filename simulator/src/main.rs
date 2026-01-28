@@ -90,14 +90,15 @@ fn main() {
 
     // Override Ledger Info if provided
     if request.timestamp.is_some() || request.ledger_sequence.is_some() {
-        let mut ledger_info = host.get_ledger_info().unwrap_or_default();
-        if let Some(ts) = request.timestamp {
-            ledger_info.timestamp = ts as u64;
-        }
-        if let Some(seq) = request.ledger_sequence {
-            ledger_info.sequence_number = seq;
-        }
-        host.set_ledger_info(ledger_info).unwrap();
+        host.with_mut_ledger_info(|ledger_info| {
+            if let Some(ts) = request.timestamp {
+                ledger_info.timestamp = ts as u64;
+            }
+            if let Some(seq) = request.ledger_sequence {
+                ledger_info.sequence_number = seq;
+            }
+        })
+        .unwrap();
     }
 
     let mut loaded_entries_count = 0;
