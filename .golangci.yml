@@ -1,0 +1,35 @@
+linters:
+  enable:
+    - unused
+    - ineffassign
+    - misspell
+    - gofmt
+    - goimports
+    - govet
+    - errcheck
+
+linters-settings:
+  unused:
+    # Treat code as a program (not a library) and report unused exported identifiers
+    check-exported: false
+    # Check arguments and named return values
+    check-arguments: true
+    # Check field assignments
+    check-fields: true
+
+issues:
+  exclude-rules:
+    # Exclude unused in test files for test helpers that implement interfaces
+    - path: _test\.go
+      linters:
+        - unused
+    # Exclude unused for exported types that may be used by external packages
+    - text: "exported .* is unused"
+      linters:
+        - unused
+
+run:
+  timeout: 5m
+  skip-dirs:
+    - vendor
+    - simulator/target
