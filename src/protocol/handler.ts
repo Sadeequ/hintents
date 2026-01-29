@@ -85,7 +85,10 @@ export class ProtocolHandler {
         }
 
         // 3. Origin validation if sources are restricted
-        if (parsed.source && this.config.trustedOrigins) {
+        if (this.config.trustedOrigins) {
+            if (!parsed.source) {
+                throw new Error('Access denied: Authentication source is required');
+            }
             if (!this.config.trustedOrigins.includes(parsed.source)) {
                 throw new Error(`Access denied: Untrusted origin '${parsed.source}'`);
             }
