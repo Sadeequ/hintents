@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -41,10 +42,10 @@ var debugCmd = &cobra.Command{
 
 This command retrieves the transaction envelope from the Stellar network, runs it
 through the local simulator, and displays detailed execution traces including:
-  • Transaction status and error messages
-  • Contract events and diagnostic logs
-  • Token flows (XLM and Soroban assets)
-  • Execution metadata and state changes
+  - Transaction status and error messages
+  - Contract events and diagnostic logs
+  - Token flows (XLM and Soroban assets)
+  - Execution metadata and state changes
 
 The simulation results are stored in a session that can be saved for later analysis.`,
 	Example: `  # Debug a transaction on mainnet
@@ -164,7 +165,6 @@ The simulation results are stored in a session that can be saved for later analy
 				EnvelopeXdr:   resp.EnvelopeXdr,
 				ResultMetaXdr: resp.ResultMetaXdr,
 				LedgerEntries: ledgerEntries,
-				Profile:       ProfileFlag,
 			}
 			simResp, err = runner.Run(simReq)
 			if err != nil {
@@ -239,6 +239,8 @@ The simulation results are stored in a session that can be saved for later analy
 			for _, line := range report.SummaryLines() {
 				fmt.Printf("  %s\n", line)
 			}
+			fmt.Printf("\nToken Flow Chart (Mermaid):\n")
+			fmt.Println(report.MermaidFlowchart())
 		}
 
 		// Session Management
