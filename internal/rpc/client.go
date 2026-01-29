@@ -276,6 +276,7 @@ func (c *Client) GetTransaction(ctx context.Context, hash string) (*TransactionR
 
 	logger.Logger.Info("Transaction fetched successfully", "hash", hash, "envelope_size", len(tx.EnvelopeXdr))
 
+	return ParseTransactionResponse(tx), nil
 	return &TransactionResponse{
 		EnvelopeXdr:   tx.EnvelopeXdr,
 		ResultXdr:     tx.ResultXdr,
