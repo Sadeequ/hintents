@@ -69,7 +69,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.62.2
+          version: latest
           args: --timeout=5m
 
       - name: Run tests
