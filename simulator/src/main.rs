@@ -1,3 +1,4 @@
+mod storage;
 // Copyright 2025 Erst Users
 // SPDX-License-Identifier: Apache-2.0
 
@@ -542,3 +543,19 @@ mod tests {
         assert!(msg.contains("VM Trap: Unknown Wasm Trap"));
     }
 }
+let decoded_before = storage::decode_input_entries(&request.ledger_entries);
+
+let before_snapshot = Some(capture_storage_snapshot(&decoded_before));
+
+let after_snapshot =
+    storage::snapshot_result_storage(&decoded_before, &_result_meta);
+
+
+report := analytics.CompareStorage(beforeSnapshot, afterSnapshot)
+
+fee := analytics.CalculateStorageFee(
+	report.DeltaBytes,
+	storageFeeModel,
+)
+
+analytics.PrintStorageReport(report, fee)
