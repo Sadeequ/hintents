@@ -15,8 +15,8 @@
 package simulator
 
 import (
-	"testing"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestTimeTravelSchema(t *testing.T) {
