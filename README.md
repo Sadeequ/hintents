@@ -158,9 +158,9 @@ See [docs/proposal.md](docs/proposal.md) for the detailed proposal.
 3.  [x] **Phase 3**: Connect the harness to live mainnet data.
 4.  [ ] **Phase 4**: Advanced Diagnostics & Source Mapping (Current Focus).
 
-## Contributors ✨
+## Contributors
 
-Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
+Thanks goes to these wonderful people:
 
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore-start -->
@@ -168,7 +168,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 <table>
   <tbody>
     <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/dotandev"><img src="https://avatars.githubusercontent.com/u/105521093?v=4" width="100px;" alt="dotdev."/><br /><sub><b>dotdev.</b></sub></a><br /><a href="#code-dotandev" title="Code">💻</a> <a href="#doc-dotandev" title="Documentation">📖</a> <a href="#ideas-dotandev" title="Ideas & Planning">🤔</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/dotandev"><img src="https://avatars.githubusercontent.com/u/105521093?v=4" width="100px;" alt="dotdev."/><br /><sub><b>dotdev.</b></sub></a><br /><a href="#code-dotandev" title="Code">Code</a> <a href="#doc-dotandev" title="Documentation">Documentation</a> <a href="#ideas-dotandev" title="Ideas & Planning">Ideas & Planning</a></td>
     </tr>
   </tbody>
 </table>

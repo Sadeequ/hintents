@@ -4,7 +4,7 @@ The interactive trace viewer provides a powerful search and navigation interface
 
 ## Features
 
-### 🔍 Search Functionality
+### Search Functionality
 
 - **Case-insensitive search** by default
 - **Highlights all matches** in yellow
@@ -13,16 +13,16 @@ The interactive trace viewer provides a powerful search and navigation interface
 - **Match counter**: Shows "Match X of Y" status
 - **Quick navigation**: Jump between matches with `n` and `N`
 
-### 🌲 Tree Navigation
+### Tree Navigation
 
 - **Hierarchical view** of execution trace
 - **Expand/collapse** nodes with Enter/Space
 - **Expand all** with `e`
 - **Collapse all** with `c`
 - **Smooth scrolling** with arrow keys, PgUp/PgDn, Home/End
-- **Visual indicators** for expanded (▼) and collapsed (▶) nodes
+- **Visual indicators** for expanded (v) and collapsed (>) nodes
 
-### 🎨 Visual Styling
+### Visual Styling
 
 - **Color-coded elements**:
   - Contract IDs in cyan
