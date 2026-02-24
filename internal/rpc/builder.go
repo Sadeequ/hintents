@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/dotandev/hintents/internal/errors"
 	"github.com/stellar/go-stellar-sdk/clients/horizonclient"
 )
 
@@ -53,7 +54,7 @@ func WithHorizonURL(url string) ClientOption {
 	return func(b *clientBuilder) error {
 		if url != "" {
 			if err := isValidURL(url); err != nil {
-				return fmt.Errorf("invalid HorizonURL: %w", err)
+				return errors.WrapValidationError(fmt.Sprintf("invalid HorizonURL: %v", err))
 			}
 		}
 		b.horizonURL = url
@@ -66,7 +67,7 @@ func WithAltURLs(urls []string) ClientOption {
 	return func(b *clientBuilder) error {
 		for _, url := range urls {
 			if err := isValidURL(url); err != nil {
-				return fmt.Errorf("invalid URL in altURLs: %w", err)
+				return errors.WrapValidationError(fmt.Sprintf("invalid URL in altURLs: %v", err))
 			}
 		}
 		if len(urls) > 0 {
@@ -81,7 +82,7 @@ func WithSorobanURL(url string) ClientOption {
 	return func(b *clientBuilder) error {
 		if url != "" {
 			if err := isValidURL(url); err != nil {
-				return fmt.Errorf("invalid SorobanURL: %w", err)
+				return errors.WrapValidationError(fmt.Sprintf("invalid SorobanURL: %v", err))
 			}
 		}
 		b.sorobanURL = url
@@ -92,7 +93,7 @@ func WithSorobanURL(url string) ClientOption {
 func WithNetworkConfig(cfg NetworkConfig) ClientOption {
 	return func(b *clientBuilder) error {
 		if err := ValidateNetworkConfig(cfg); err != nil {
-			return fmt.Errorf("invalid network config: %w", err)
+			return errors.WrapValidationError(fmt.Sprintf("invalid network config: %v", err))
 		}
 		b.config = &cfg
 		b.network = Network(cfg.Name)
