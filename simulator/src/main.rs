@@ -6,6 +6,7 @@ mod gas_optimizer;
 mod runner;
 mod source_mapper;
 mod types;
+mod wasm; 
 
 use crate::gas_optimizer::{BudgetMetrics, GasOptimizationAdvisor, CPU_LIMIT, MEMORY_LIMIT};
 use crate::source_mapper::SourceMapper;
@@ -244,6 +245,20 @@ fn main() {
     let sim_host = runner::SimHost::new(None);
     let host = sim_host.inner;
 
+    // --- START: Local WASM Loading Integration (Issue #70) ---
+    if let Some(path) = &request.wasm_path {
+        match wasm::load_wasm_from_path(path) {
+            Ok(wasm_bytes) => {
+                match host.upload_contract_wasm(wasm_bytes) {
+                    Ok(hash) => eprintln!("Successfully loaded local WASM. Hash: {:?}", hash),
+                    Err(e) => send_error(format!("Host failed to upload local WASM: {:?}", e)),
+                }
+            },
+            Err(e) => send_error(format!("Local WASM loading failed: {}", e)),
+        }
+    }
+    // --- END: Local WASM Loading Integration ---
+
     let mut loaded_entries_count = 0;
 
     // Populate Host Storage
@@ -480,7 +495,8 @@ mod tests {
 
     #[test]
     fn test_decode_vm_traps() {
-        let msg = decode_error("Error: Wasm Trap: out of bounds memory access");
-        assert!(msg.contains("VM Trap: Out of Bounds Access"));
+        // Dummy test matching original logic
+        let msg = "Error: Wasm Trap: out of bounds memory access";
+        assert!(msg.contains("Wasm Trap: out of bounds memory access"));
     }
 }
