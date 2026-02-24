@@ -53,6 +53,7 @@ var (
 	watchTimeoutFlag    int
 	protocolVersionFlag uint32
 	themeFlag           string
+	mockTimeFlag        int64
 )
 
 // DebugCommand holds dependencies for the debug command
@@ -371,7 +372,7 @@ Local WASM Replay Mode:
 		}
 
 		// Initialize Simulator Runner
-		runner, err := simulator.NewRunner("", tracingEnabled)
+		runner, err := simulator.NewRunnerWithMockTime("", tracingEnabled, mockTimeFlag)
 		if err != nil {
 			return errors.WrapSimulatorNotFound(err.Error())
 		}
@@ -1022,6 +1023,7 @@ func init() {
 	debugCmd.Flags().IntVar(&watchTimeoutFlag, "watch-timeout", 30, "Timeout in seconds for watch mode")
 	debugCmd.Flags().Uint32Var(&protocolVersionFlag, "protocol-version", 0, "Override protocol version for simulation (20, 21, 22, etc)")
 	debugCmd.Flags().StringVar(&themeFlag, "theme", "", "Color theme (default, deuteranopia, protanopia, tritanopia, high-contrast)")
+	debugCmd.Flags().Int64Var(&mockTimeFlag, "mock-time", 0, "Fix the ledger timestamp for deterministic local simulation (Unix epoch seconds); 0 = disabled")
 
 	rootCmd.AddCommand(debugCmd)
 }
