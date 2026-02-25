@@ -3,8 +3,11 @@
 # Environment variables override these settings
 # CLI flags override everything
 
-# RPC URL for the Stellar network
+# RPC URL for the Stellar network (single URL)
 rpc_url = "https://soroban-testnet.stellar.org"
+
+# Multi-RPC URLs for automatic fallback (array syntax)
+# rpc_urls = ["https://rpc1.stellar.org", "https://rpc2.stellar.org"]
 
 # Network: public, testnet, futurenet, or standalone
 network = "testnet"
@@ -17,3 +20,7 @@ log_level = "info"
 
 # Cache directory for storing traces and snapshots
 # cache_path = "~/.erst/cache"
+
+# Audit HSM Configuration
+# ERST_PKCS11_MODULE = "/usr/lib/softhsm/libsofthsm2.so"
+# ERST_PKCS11_MAX_RPM = 1000 # Max requests per minute to protect HSM

@@ -10,15 +10,19 @@ mod types;
 use crate::gas_optimizer::{BudgetMetrics, GasOptimizationAdvisor, CPU_LIMIT, MEMORY_LIMIT};
 use crate::source_mapper::SourceMapper;
 use crate::types::*;
-use base64::Engine;
+use base64::Engine as _;
+use serde::{Deserialize, Serialize};
 use soroban_env_host::xdr::ReadXdr;
 use soroban_env_host::{
     xdr::{HostFunction, Operation, OperationBody, ScVal},
     Host, HostError,
 };
+use std::collections::HashMap;
 use std::env;
-use std::io::Read;
+use std::io::{self, Read};
 use tracing_subscriber::{fmt, EnvFilter};
+
+// Use types::SimulationRequest directly
 
 fn init_logger() {
     // Check if the environment variable ERST_LOG_FORMAT is set to "json"
@@ -64,16 +68,7 @@ fn execute_operations(host: &Host, operations: &[Operation]) -> Result<Vec<Strin
     for op in operations {
         match &op.body {
             OperationBody::InvokeHostFunction(invoke_op) => {
-                // In a real simulation we would invoke the host function.
-                // host.invoke_function(invoke_op.host_function.clone())?;
-                // However, without a full transaction frame setup matching the network,
-                // direct invocation might fail or panic if auth is missing.
-                // For now, we attempt to invoke but catch errors if possible, or just log.
-
-                // Note: The host provided is already initialized with storage.
-                // We really should use `host.invoke_function`.
-
-                logs.push(format!("Executing InvokeHostFunction..."));
+                logs.push("Executing InvokeHostFunction...".to_string());
                 let val = host.invoke_function(invoke_op.host_function.clone())?;
                 logs.push(format!("Result: {:?}", val));
             }
@@ -132,6 +127,16 @@ fn categorize_events(events: &soroban_env_host::events::Events) -> Vec<Categoriz
         .collect()
 }
 
+/// Main entry point for the erst simulator.
+///
+/// Reads a JSON `SimulationRequest` from stdin, 
+/// initializes a Soroban host environment, and outputs a JSON
+/// `SimulationResponse` with simulation results or errors.
+///
+/// # Panics
+///
+/// May panic if JSON serialization of the response fails (should not happen
+/// with valid `SimulationResponse` structures).
 fn main() {
     // 1. Initialize the logger immediately
     init_logger();
@@ -141,7 +146,7 @@ fn main() {
 
     // Read JSON from Stdin
     let mut buffer = String::new();
-    if let Err(e) = std::io::stdin().read_to_string(&mut buffer) {
+    if let Err(e) = io::stdin().read_to_string(&mut buffer) {
         let res = SimulationResponse {
             status: "error".to_string(),
             error: Some(format!("Failed to read stdin: {}", e)),
@@ -175,7 +180,7 @@ fn main() {
                 budget_usage: None,
                 source_location: None,
             };
-            println!("{}", serde_json::to_string(&res).unwrap());
+            println!("{}", serde_json::to_string(&res).expect("Failed to serialize error response"));
             return;
         }
     };
@@ -188,29 +193,44 @@ fn main() {
         ) {
             Ok(env) => env,
             Err(e) => {
-                return send_error(format!("Failed to parse Envelope XDR: {}", e));
+                send_error(format!("Failed to parse Envelope XDR: {}", e));
+                return;
             }
         },
         Err(e) => {
-            return send_error(format!("Failed to decode Envelope Base64: {}", e));
+            send_error(format!("Failed to decode Envelope Base64: {}", e));
+            return;
         }
     };
 
     // Decode ResultMeta XDR
+    eprintln!(
+        "Debug: Received ResultMetaXdr len: {}",
+        request.result_meta_xdr.len()
+    );
+
     let _result_meta = if request.result_meta_xdr.is_empty() {
-        eprintln!("Warning: ResultMetaXdr is empty. Host storage will be empty.");
+        eprintln!("Warning: ResultMetaXdr is empty. Host storage may be incomplete.");
         None
     } else {
         match base64::engine::general_purpose::STANDARD.decode(&request.result_meta_xdr) {
-            Ok(bytes) => match soroban_env_host::xdr::TransactionResultMeta::from_xdr(
-                bytes,
-                soroban_env_host::xdr::Limits::none(),
-            ) {
-                Ok(meta) => Some(meta),
-                Err(e) => {
-                    return send_error(format!("Failed to parse ResultMeta XDR: {}", e));
+            Ok(bytes) => {
+                if bytes.is_empty() {
+                    eprintln!("Warning: ResultMetaXdr decoded to 0 bytes.");
+                    None
+                } else {
+                    match soroban_env_host::xdr::TransactionResultMeta::from_xdr(
+                        &bytes,
+                        soroban_env_host::xdr::Limits::none(),
+                    ) {
+                        Ok(meta) => Some(meta),
+                        Err(e) => {
+                            eprintln!("Warning: Failed to parse ResultMeta XDR: {}. Proceeding with empty storage.", e);
+                            None
+                        }
+                    }
                 }
-            },
+            }
             Err(e) => {
                 eprintln!("Warning: Failed to decode ResultMeta Base64: {}. Proceeding with empty storage.", e);
                 None
@@ -241,7 +261,7 @@ fn main() {
     };
 
     // Initialize Host
-    let sim_host = runner::SimHost::new(None);
+    let sim_host = runner::SimHost::new(None, request.resource_calibration.clone());
     let host = sim_host.inner;
 
     let mut loaded_entries_count = 0;
@@ -249,27 +269,45 @@ fn main() {
     // Populate Host Storage
     if let Some(entries) = &request.ledger_entries {
         for (key_xdr, entry_xdr) in entries {
+            // Decode Key
             let _key = match base64::engine::general_purpose::STANDARD.decode(key_xdr) {
                 Ok(b) => match soroban_env_host::xdr::LedgerKey::from_xdr(
                     b,
                     soroban_env_host::xdr::Limits::none(),
                 ) {
                     Ok(k) => k,
-                    Err(e) => return send_error(format!("Failed to parse LedgerKey XDR: {}", e)),
+                    Err(e) => {
+                        send_error(format!("Failed to parse LedgerKey XDR: {}", e));
+                        return;
+                    }
                 },
-                Err(e) => return send_error(format!("Failed to decode LedgerKey Base64: {}", e)),
+                Err(e) => {
+                    send_error(format!("Failed to decode LedgerKey Base64: {}", e));
+                    return;
+                }
             };
 
+            // Decode Entry
             let _entry = match base64::engine::general_purpose::STANDARD.decode(entry_xdr) {
                 Ok(b) => match soroban_env_host::xdr::LedgerEntry::from_xdr(
                     b,
                     soroban_env_host::xdr::Limits::none(),
                 ) {
                     Ok(e) => e,
-                    Err(e) => return send_error(format!("Failed to parse LedgerEntry XDR: {}", e)),
+                    Err(e) => {
+                        send_error(format!("Failed to parse LedgerEntry XDR: {}", e));
+                        return;
+                    }
                 },
-                Err(e) => return send_error(format!("Failed to decode LedgerEntry Base64: {}", e)),
+                Err(e) => {
+                    send_error(format!("Failed to decode LedgerEntry Base64: {}", e));
+                    return;
+                }
             };
+
+            // TODO: Inject into host storage.
+            // For MVP, we verify we can parse them.
+            eprintln!("Parsed Ledger Entry: Key={:?}, Entry={:?}", _key, _entry);
             loaded_entries_count += 1;
         }
     }
@@ -299,7 +337,7 @@ fn main() {
     let budget_usage = BudgetUsage {
         cpu_instructions: cpu_insns,
         memory_bytes: mem_bytes,
-        operations_count: operations.as_slice().len(),
+        operations_count: operations.len(),
         cpu_limit: CPU_LIMIT,
         memory_limit: MEMORY_LIMIT,
         cpu_usage_percent,
@@ -322,16 +360,16 @@ fn main() {
     if request.profile.unwrap_or(false) {
         // Simple simulated flamegraph for demonstration
         let folded_data = format!("Total;CPU {}\nTotal;Memory {}\n", cpu_insns, mem_bytes);
-        let mut result = Vec::new();
+        let mut result_vec = Vec::new();
         let mut options = inferno::flamegraph::Options::default();
         options.title = "Soroban Resource Consumption".to_string();
 
         if let Err(e) =
-            inferno::flamegraph::from_reader(&mut options, folded_data.as_bytes(), &mut result)
+            inferno::flamegraph::from_reader(&mut options, folded_data.as_bytes(), &mut result_vec)
         {
             eprintln!("Failed to generate flamegraph: {}", e);
         } else {
-            flamegraph_svg = Some(String::from_utf8_lossy(&result).to_string());
+            flamegraph_svg = Some(String::from_utf8_lossy(&result_vec).to_string());
         }
     }
 
@@ -404,9 +442,7 @@ fn main() {
                 format!("CPU Instructions Used: {}", cpu_insns),
                 format!("Memory Bytes Used: {}", mem_bytes),
             ];
-            for log in exec_logs {
-                final_logs.push(log);
-            }
+            final_logs.extend(exec_logs);
 
             let response = SimulationResponse {
                 status: "success".to_string(),
@@ -582,5 +618,9 @@ fn main() {
 mod tests {
     use super::*;
 
-    // Additional tests can be added here
+    #[test]
+    fn test_decode_vm_traps() {
+        let msg = decode_error("Error: Wasm Trap: out of bounds memory access");
+        assert!(msg.contains("VM Trap: Out of Bounds Access"));
+    }
 }
