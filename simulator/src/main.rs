@@ -76,7 +76,7 @@ fn execute_operations(host: &Host, operations: &[Operation]) -> Result<Vec<Strin
             OperationBody::InvokeHostFunction(invoke_op) => {
                 logs.push("Executing InvokeHostFunction...".to_string());
                 let val = host.invoke_function(invoke_op.host_function.clone())?;
-                logs.push(format!("Result: {:?}", val));
+                logs.push(format!("Result: {val:?}"));
             }
             _ => {
                 logs.push(format!(
@@ -101,10 +101,10 @@ fn categorize_events(events: &soroban_env_host::events::Events) -> Vec<Categoriz
             }
             .to_string();
 
-            let contract_id = e.event.contract_id.as_ref().map(|id| format!("{:?}", id));
+            let contract_id = e.event.contract_id.as_ref().map(|id| format!("{id:?}"));
             let topics = match &e.event.body {
                 soroban_env_host::xdr::ContractEventBody::V0(v0) => {
-                    v0.topics.iter().map(|t| format!("{:?}", t)).collect()
+                    v0.topics.iter().map(|t| format!("{t:?}")).collect()
                 }
             };
             let data = match &e.event.body {
@@ -157,7 +157,7 @@ fn main() {
     if let Err(e) = io::stdin().read_to_string(&mut buffer) {
         let res = SimulationResponse {
             status: "error".to_string(),
-            error: Some(format!("Failed to read stdin: {}", e)),
+            error: Some(format!("Failed to read stdin: {e}")),
             events: vec![],
             diagnostic_events: vec![],
             categorized_events: vec![],
@@ -168,7 +168,7 @@ fn main() {
             source_location: None,
         };
         println!("{}", serde_json::to_string(&res).unwrap());
-        eprintln!("Failed to read stdin: {}", e);
+        eprintln!("Failed to read stdin: {e}");
         return;
     }
 
@@ -178,7 +178,7 @@ fn main() {
         Err(e) => {
             let res = SimulationResponse {
                 status: "error".to_string(),
-                error: Some(format!("Invalid JSON: {}", e)),
+                error: Some(format!("Invalid JSON: {e}")),
                 events: vec![],
                 diagnostic_events: vec![],
                 categorized_events: vec![],
@@ -241,7 +241,7 @@ fn main() {
                 }
             }
             Err(e) => {
-                eprintln!("Warning: Failed to decode ResultMeta Base64: {}. Proceeding with empty storage.", e);
+                eprintln!("Warning: Failed to decode ResultMeta Base64: {e}. Proceeding with empty storage.");
                 None
             }
         }
@@ -264,7 +264,7 @@ fn main() {
                 }
             }
             Err(e) => {
-                eprintln!("Failed to decode WASM base64: {}", e);
+                eprintln!("Failed to decode WASM base64: {e}");
                 None
             }
         }
@@ -334,7 +334,11 @@ fn main() {
             eprintln!("Parsed Ledger Entry: Key={:?}, Entry={:?}", _key, _entry);
             loaded_entries_count += 1;
         }
-    }
+    } else {
+        snapshot::LedgerSnapshot::new()
+    };
+
+    let loaded_entries_count = snapshot.len();
 
     // Extract Operations and Simulate
     let operations = match &envelope {
@@ -391,7 +395,7 @@ fn main() {
         if let Err(e) =
             inferno::flamegraph::from_reader(&mut options, folded_data.as_bytes(), &mut result_vec)
         {
-            eprintln!("Failed to generate flamegraph: {}", e);
+            eprintln!("Failed to generate flamegraph: {e}");
         } else {
             flamegraph_svg = Some(String::from_utf8_lossy(&result_vec).to_string());
         }
@@ -445,15 +449,42 @@ fn main() {
                                     // negate to get "was this a successful call?".
                                     in_successful_contract_call: !event.failed_call,
                                 }
-                            })
-                            .collect();
-                        (raw_events, diag_events)
-                    }
-                    Err(_) => (
-                        vec!["Failed to retrieve events".to_string()],
-                        Vec::<DiagnosticEvent>::new(),
-                    ),
-                };
+                                soroban_env_host::xdr::ContractEventType::Diagnostic => {
+                                    "diagnostic".to_string()
+                                }
+                            };
+
+                            let contract_id = event
+                                .event
+                                .contract_id
+                                .as_ref()
+                                .map(|contract_id| format!("{contract_id:?}"));
+
+                            let (topics, data) = match &event.event.body {
+                                soroban_env_host::xdr::ContractEventBody::V0(v0) => {
+                                    let topics: Vec<String> =
+                                        v0.topics.iter().map(|t| format!("{t:?}")).collect();
+                                    let data = format!("{:?}", v0.data);
+                                    (topics, data)
+                                }
+                            };
+
+                            DiagnosticEvent {
+                                event_type,
+                                contract_id,
+                                topics,
+                                data,
+                                in_successful_contract_call: event.failed_call,
+                            }
+                        })
+                        .collect();
+                    (raw_events, diag_events)
+                }
+                Err(_) => (
+                    vec!["Failed to retrieve events".to_string()],
+                    Vec::<DiagnosticEvent>::new(),
+                ),
+            };
 
             // Capture categorized events for analyzer
             let categorized_events = match host.get_events() {
@@ -639,7 +670,7 @@ fn main() {
 
             let response = SimulationResponse {
                 status: "error".to_string(),
-                error: Some(format!("Simulator panicked: {}", panic_msg)),
+                error: Some(format!("Simulator panicked: {panic_msg}")),
                 events: vec![],
                 diagnostic_events: vec![],
                 categorized_events: vec![],
