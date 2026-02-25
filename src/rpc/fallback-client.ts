@@ -100,7 +100,7 @@ export class FallbackRPCClient {
                 this.markSuccess(endpoint);
                 this.currentIndex = 0; // Return to primary
 
-                const responseSize = JSON.stringify(response.data).length;
+                const responseSize = response.data ? JSON.stringify(response.data).length : 0;
                 logger.verbose(LogCategory.RPC, `← Response received (${duration}ms)`);
                 logger.verboseIndent(LogCategory.RPC, `Status: ${response.status} ${response.statusText}`);
                 logger.verboseIndent(LogCategory.RPC, `Response size: ${logger.formatBytes(responseSize)}`);
@@ -324,10 +324,19 @@ export class FallbackRPCClient {
         const checks = this.endpoints.map(async (endpoint) => {
             try {
                 const client = this.clients.get(endpoint.url)!;
-                await client.get('/health', { timeout: 5000 });
+                const response = await client.post('', {
+                    jsonrpc: '2.0',
+                    id: 1,
+                    method: 'getHealth'
+                }, { timeout: 5000 });
 
-                this.markSuccess(endpoint);
-                console.log(`    ${endpoint.url}`);
+                if (response.data && response.data.result && response.data.result.status === 'healthy') {
+                    this.markSuccess(endpoint);
+                    console.log(`    ${endpoint.url} (healthy)`);
+                } else {
+                    this.markFailure(endpoint);
+                    console.log(`   [FAIL] ${endpoint.url} (invalid response)`);
+                }
             } catch (error) {
                 this.markFailure(endpoint);
                 console.log(`   [FAIL] ${endpoint.url}`);

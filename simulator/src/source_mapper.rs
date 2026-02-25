@@ -11,11 +11,12 @@ pub struct SourceMapper {
     line_cache: Vec<CachedLineEntry>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SourceLocation {
     pub file: String,
     pub line: u32,
-    pub column: Option<u32>,
+    pub column: u32,
+    pub column_end: Option<u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -26,6 +27,7 @@ struct CachedLineEntry {
 }
 
 impl SourceMapper {
+    /// Creates a new SourceMapper with caching enabled
     pub fn new(wasm_bytes: Vec<u8>) -> Self {
         let has_symbols = Self::check_debug_symbols(&wasm_bytes);
         let line_cache = if has_symbols {
@@ -224,11 +226,17 @@ impl SourceMapper {
     pub fn has_debug_symbols(&self) -> bool {
         self.has_symbols
     }
+
+    /// Returns the WASM hash used for caching
+    pub fn get_wasm_hash(&self) -> &str {
+        &self.wasm_hash
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::TempDir;
 
     fn mapper_with_cache(entries: Vec<CachedLineEntry>) -> SourceMapper {
         SourceMapper {
@@ -297,11 +305,69 @@ mod tests {
         let location = SourceLocation {
             file: "test.rs".to_string(),
             line: 42,
-            column: Some(10),
+            column: 10,
+            column_end: Some(15),
         };
 
         let json = serde_json::to_string(&location).unwrap();
         assert!(json.contains("test.rs"));
         assert!(json.contains("42"));
+    }
+
+    #[test]
+    fn test_source_mapper_with_cache() {
+        let temp_dir = TempDir::new().unwrap();
+        let wasm_bytes = vec![0x00, 0x61, 0x73, 0x6d];
+        let wasm_hash = SourceMapCache::compute_wasm_hash(&wasm_bytes);
+
+        // First create - this will NOT populate cache because has_symbols is false
+        // The current implementation only caches when debug symbols are present
+        {
+            let mapper =
+                SourceMapper::new_with_cache(wasm_bytes.clone(), temp_dir.path().to_path_buf());
+            assert!(!mapper.has_debug_symbols());
+
+            // Try to map - should work even without symbols
+            let result = mapper.map_wasm_offset_to_source(0x1234);
+            // Without debug symbols, should return None
+            assert!(result.is_none());
+        }
+
+        // Verify cache was NOT created (since no debug symbols)
+        let cache = SourceMapCache::with_cache_dir(temp_dir.path().to_path_buf()).unwrap();
+        let entries = cache.list_cached().unwrap();
+        assert_eq!(entries.len(), 0);
+
+        // Test that we can create cache entries directly
+        let mut mappings = std::collections::HashMap::new();
+        mappings.insert(
+            0x1234,
+            SourceLocation {
+                file: "test.rs".to_string(),
+                line: 42,
+                column: Some(10),
+            },
+        );
+
+        let entry = SourceMapCacheEntry {
+            wasm_hash: wasm_hash.clone(),
+            has_symbols: true,
+            mappings,
+            created_at: 1234567890,
+        };
+
+        cache.store(entry).unwrap();
+
+        // Verify cache was created
+        let entries = cache.list_cached().unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].wasm_hash, wasm_hash);
+    }
+
+    #[test]
+    fn test_wasm_hash() {
+        let wasm_bytes = vec![0x00, 0x61, 0x73, 0x6d];
+        let hash = SourceMapCache::compute_wasm_hash(&wasm_bytes);
+        assert_eq!(hash.len(), 64);
     }
 }
