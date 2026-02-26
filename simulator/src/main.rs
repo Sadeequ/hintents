@@ -209,11 +209,6 @@ fn main() {
 
     // Read JSON from Stdin
     let mut buffer = String::new();
-    if let Err(e) = std::io::stdin().read_to_string(&mut buffer) {
-        let err_msg = format!("Failed to read stdin: {}", e);
-        let res = SimulationResponse {
-            status: "error".to_string(),
-            error: Some(err_msg.clone()),
     if let Err(e) = io::stdin().read_to_string(&mut buffer) {
         let res = SimulationResponse {
             status: "error".to_string(),
@@ -234,7 +229,6 @@ fn main() {
             eprintln!("Failed to serialize error response");
             println!("{{\"status\": \"error\", \"error\": \"Internal serialization error\"}}");
         }
-        eprintln!("{}", err_msg);
         eprintln!("Failed to read stdin: {e}");
         return;
     }
