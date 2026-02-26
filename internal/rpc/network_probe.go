@@ -13,13 +13,13 @@ import (
 // ResolveNetwork probes all known Stellar networks concurrently and returns the
 // first one on which hash is found. It is called by the debug command when
 // --network is not explicitly provided by the user.
-func ResolveNetwork(ctx context.Context, hash string, token string) (Network, error) {
-	return resolveNetwork(ctx, hash, token, nil)
+func ResolveNetwork(ctx context.Context, hash string, token string, headers map[string]string) (Network, error) {
+	return resolveNetwork(ctx, hash, token, nil, headers)
 }
 
 // resolveNetwork is the testable core. overrideURLs maps each Network to a
 // custom Horizon URL; when nil or a network is absent, the default URL is used.
-func resolveNetwork(ctx context.Context, hash string, token string, overrideURLs map[Network]string) (Network, error) {
+func resolveNetwork(ctx context.Context, hash string, token string, overrideURLs map[Network]string, headers map[string]string) (Network, error) {
 	candidates := []Network{Mainnet, Testnet, Futurenet}
 
 	probeCtx, cancel := context.WithCancel(ctx)
@@ -34,6 +34,9 @@ func resolveNetwork(ctx context.Context, hash string, token string, overrideURLs
 			defer wg.Done()
 
 			opts := []ClientOption{WithNetwork(n), WithToken(token)}
+			if headers != nil {
+				opts = append(opts, WithHeaders(headers))
+			}
 			if url, ok := overrideURLs[n]; ok {
 				opts = append(opts, WithHorizonURL(url))
 			}

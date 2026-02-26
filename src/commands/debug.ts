@@ -16,6 +16,7 @@ export function registerDebugCommand(program: Command): void {
         )
         .option('--timeout <ms>', 'Request timeout in milliseconds', '30000')
         .option('--retries <n>', 'Number of retries per endpoint', '3')
+        .option('--rpc-headers <headers>', 'Additional headers to add to each RPC request (JSON string or comma-separated key=value pairs)')
         .option('--verbose', 'Enable verbose output with detailed execution steps')
         .action(async (transaction: string, options) => {
             const startTime = Date.now();
@@ -35,6 +36,7 @@ export function registerDebugCommand(program: Command): void {
                     rpc: options.rpc,
                     timeout: parseInt(options.timeout),
                     retries: parseInt(options.retries),
+                    headers: options.rpcHeaders,
                 });
 
                 // Initialize RPC client with fallback
@@ -46,6 +48,9 @@ export function registerDebugCommand(program: Command): void {
                 // Verbose: Show configuration
                 logger.verbose(LogCategory.INFO, 'Configuration');
                 logger.verboseIndent(LogCategory.INFO, `RPC URL: ${options.rpc || 'Default'}`);
+                if (options.rpcHeaders) {
+                    logger.verboseIndent(LogCategory.INFO, `RPC headers: ${options.rpcHeaders}`);
+                }
                 logger.verboseIndent(LogCategory.INFO, `Transaction hash: ${transaction}`);
                 logger.verboseIndent(LogCategory.INFO, `Verbose mode: enabled\n`);
 
@@ -93,7 +98,7 @@ export function registerDebugCommand(program: Command): void {
         .option('--rpc <urls>', 'Comma-separated list of RPC URLs')
         .action(async (options) => {
             try {
-                const config = RPCConfigParser.loadConfig({ rpc: options.rpc });
+                const config = RPCConfigParser.loadConfig({ rpc: options.rpc, headers: options.rpcHeaders });
                 const rpcClient = new FallbackRPCClient(config);
 
                 await rpcClient.performHealthChecks();

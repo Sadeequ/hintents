@@ -50,11 +50,22 @@ Example:
 		if rpcURLFlag != "" {
 			opts = append(opts, rpc.WithHorizonURL(rpcURLFlag))
 		}
-
-		client, err := rpc.NewClient(opts...)
-		if err != nil {
-			return errors.WrapValidationError(fmt.Sprintf("failed to create client: %v", err))
+		if rpcTokenFlag != "" {
+			opts = append(opts, rpc.WithToken(rpcTokenFlag))
 		}
+		// headers
+		headersStr := rpcHeadersFlag
+		if headersStr == "" {
+			headersStr = os.Getenv("ERST_RPC_HEADERS")
+			if headersStr == "" {
+				headersStr = os.Getenv("STELLAR_RPC_HEADERS")
+			}
+		}
+	if headersStr == "" {
+		if cfg, err := config.Load(); err == nil && cfg.RpcHeaders != "" {
+			headersStr = cfg.RpcHeaders
+		}
+	}
 
 		// 3. Fetch Transaction
 		fmt.Printf("Fetching transaction: %s from %s\n", txHash, networkFlag)
@@ -118,6 +129,8 @@ func init() {
 	// BUT we need to register flags for THIS command too.
 	upgradeCmd.Flags().StringVarP(&networkFlag, "network", "n", string(rpc.Mainnet), "Stellar network to use")
 	upgradeCmd.Flags().StringVar(&rpcURLFlag, "rpc-url", "", "Custom Horizon RPC URL")
+	upgradeCmd.Flags().StringVar(&rpcTokenFlag, "rpc-token", "", "RPC authentication token (can also use ERST_RPC_TOKEN env var)")
+	upgradeCmd.Flags().StringVar(&rpcHeadersFlag, "rpc-headers", "", "Additional headers to include on RPC requests (JSON or key=value list)")
 
 	rootCmd.AddCommand(upgradeCmd)
 }

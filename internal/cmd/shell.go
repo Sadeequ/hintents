@@ -6,11 +6,11 @@ package cmd
 import (
 	"bufio"
 	"context"
-	"encoding/base64"
 	"fmt"
 	"os"
 	"strings"
 
+	"github.com/dotandev/hintents/internal/config"
 	"github.com/dotandev/hintents/internal/errors"
 	"github.com/dotandev/hintents/internal/logger"
 	"github.com/dotandev/hintents/internal/rpc"
@@ -23,6 +23,7 @@ var (
 	shellNetworkFlag string
 	shellRPCURLFlag  string
 	shellRPCToken    string
+	shellRPCHeaders  string
 	shellInitState   string
 )
 
@@ -65,6 +66,7 @@ func init() {
 	shellCmd.Flags().StringVarP(&shellNetworkFlag, "network", "n", string(rpc.Testnet), "Stellar network to use (testnet, mainnet, futurenet)")
 	shellCmd.Flags().StringVar(&shellRPCURLFlag, "rpc-url", "", "Custom Horizon RPC URL to use")
 	shellCmd.Flags().StringVar(&shellRPCToken, "rpc-token", "", "RPC authentication token")
+	shellCmd.Flags().StringVar(&shellRPCHeaders, "rpc-headers", "", "Additional headers to include on RPC requests (JSON or key=value list)")
 	shellCmd.Flags().StringVar(&shellInitState, "init-state", "", "Initial ledger state file (JSON)")
 
 	rootCmd.AddCommand(shellCmd)
@@ -75,10 +77,46 @@ func runShell(cmd *cobra.Command, args []string) error {
 
 	// Initialize RPC client
 	var rpcClient *rpc.Client
-	if shellRPCURLFlag != "" {
-		rpcClient = rpc.NewClientWithURL(shellRPCURLFlag, rpc.Network(shellNetworkFlag))
-	} else {
-		rpcClient = rpc.NewClient(rpc.Network(shellNetworkFlag))
+	{
+		token := shellRPCToken
+		if token == "" {
+			token = os.Getenv("ERST_RPC_TOKEN")
+		}
+		if token == "" {
+			if cfg, err := config.Load(); err == nil && cfg.RPCToken != "" {
+				token = cfg.RPCToken
+			}
+		}
+
+		headersStr := shellRPCHeaders
+		if headersStr == "" {
+			headersStr = os.Getenv("ERST_RPC_HEADERS")
+			if headersStr == "" {
+				headersStr = os.Getenv("STELLAR_RPC_HEADERS")
+			}
+		}
+		if headersStr == "" {
+			if cfg, err := config.Load(); err == nil && cfg.RpcHeaders != "" {
+				headersStr = cfg.RpcHeaders
+			}
+		}
+
+		opts := []rpc.ClientOption{
+			rpc.WithNetwork(rpc.Network(shellNetworkFlag)),
+			rpc.WithToken(token),
+		}
+		if shellRPCURLFlag != "" {
+			opts = append(opts, rpc.WithHorizonURL(shellRPCURLFlag))
+		}
+		if headersStr != "" {
+			opts = append(opts, rpc.WithHeaders(rpc.ParseHeaders(headersStr)))
+		}
+
+		var err error
+		rpcClient, err = rpc.NewClient(opts...)
+		if err != nil {
+			return errors.WrapValidationError(fmt.Sprintf("failed to create RPC client: %v", err))
+		}
 	}
 
 	// Initialize simulator runner

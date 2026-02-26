@@ -49,8 +49,10 @@ const (
 )
 
 // authTransport is a custom HTTP RoundTripper that adds authentication headers
+// and any arbitrary user-supplied headers to requests.
 type authTransport struct {
 	token     string
+	headers   map[string]string
 	transport http.RoundTripper
 }
 
@@ -59,6 +61,11 @@ func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if t.token != "" {
 		// Add Bearer token to Authorization header
 		req.Header.Set("Authorization", "Bearer "+t.token)
+	}
+	for k, v := range t.headers {
+		if v != "" {
+			req.Header.Set(k, v)
+		}
 	}
 	return t.transport.RoundTrip(req)
 }
@@ -106,6 +113,8 @@ type Client struct {
 	mu           sync.RWMutex
 	httpClient   *http.Client
 	token        string // stored for reference, not logged
+	// headers that will be attached to each HTTP request
+	Headers      map[string]string
 	Config       NetworkConfig
 	CacheEnabled bool
 	failures     map[string]int
@@ -236,7 +245,7 @@ func (c *Client) rotateURL() bool {
 	c.HorizonURL = c.AltURLs[c.currIndex]
 	httpClient := c.httpClient
 	if httpClient == nil {
-		httpClient = createHTTPClient(c.token, defaultHTTPTimeout)
+		httpClient = createHTTPClient(c.token, c.Headers, defaultHTTPTimeout)
 	}
 	c.Horizon = &horizonclient.Client{
 		HorizonURL: c.HorizonURL,
@@ -254,16 +263,18 @@ func (c *Client) getHTTPClient() *http.Client {
 	return http.DefaultClient
 }
 
-// createHTTPClient creates an HTTP client with optional authentication and a configurable timeout.
-func createHTTPClient(token string, timeout time.Duration) *http.Client {
+// createHTTPClient creates an HTTP client with optional authentication headers and a configurable timeout.
+// `headers` is a map of arbitrary string headers that will be added on every request.
+func createHTTPClient(token string, headers map[string]string, timeout time.Duration) *http.Client {
 	cfg := DefaultRetryConfig()
 
 	var baseTransport http.RoundTripper = http.DefaultTransport
 
 	var transport http.RoundTripper = baseTransport
-	if token != "" {
+	if token != "" || len(headers) > 0 {
 		transport = &authTransport{
 			token:     token,
+			headers:   headers,
 			transport: baseTransport,
 		}
 	}
@@ -283,7 +294,7 @@ func NewCustomClient(config NetworkConfig) (*Client, error) {
 		return nil, err
 	}
 
-	httpClient := createHTTPClient("", defaultHTTPTimeout)
+	httpClient := createHTTPClient("", nil, defaultHTTPTimeout)
 	horizonClient := &horizonclient.Client{
 		HorizonURL: config.HorizonURL,
 		HTTP:       httpClient,

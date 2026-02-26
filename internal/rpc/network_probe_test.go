@@ -5,7 +5,9 @@ package rpc
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	hProtocol "github.com/stellar/go-stellar-sdk/protocols/horizon"
@@ -28,6 +30,30 @@ func txNotFoundRoute() MockRoute {
 	}
 }
 
+
+func TestResolveNetwork_HeadersSent(t *testing.T) {
+	seen := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Test") == "val" {
+			seen = true
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(hProtocol.Transaction{Hash: probeTestHash})
+	}))
+	defer srv.Close()
+
+	overrides := map[Network]string{
+		Mainnet:   srv.URL,
+		Testnet:   srv.URL,
+		Futurenet: srv.URL,
+	}
+
+	_, err := resolveNetwork(context.Background(), probeTestHash, "", overrides, map[string]string{"X-Test": "val"})
+	assert.NoError(t, err)
+	assert.True(t, seen)
+}
+
 func TestResolveNetwork_FoundOnMainnet(t *testing.T) {
 	mainnet := NewMockServer(map[string]MockRoute{
 		"/transactions/" + probeTestHash: txSuccessRoute(probeTestHash),
@@ -43,7 +69,7 @@ func TestResolveNetwork_FoundOnMainnet(t *testing.T) {
 		Futurenet: empty.URL(),
 	}
 
-	net, err := resolveNetwork(context.Background(), probeTestHash, "", overrides)
+	net, err := resolveNetwork(context.Background(), probeTestHash, "", overrides, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, Mainnet, net)
 }
@@ -63,7 +89,7 @@ func TestResolveNetwork_FoundOnTestnet(t *testing.T) {
 		Futurenet: empty.URL(),
 	}
 
-	net, err := resolveNetwork(context.Background(), probeTestHash, "", overrides)
+	net, err := resolveNetwork(context.Background(), probeTestHash, "", overrides, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, Testnet, net)
 }
@@ -83,7 +109,7 @@ func TestResolveNetwork_FoundOnFuturenet(t *testing.T) {
 		Futurenet: futurenet.URL(),
 	}
 
-	net, err := resolveNetwork(context.Background(), probeTestHash, "", overrides)
+	net, err := resolveNetwork(context.Background(), probeTestHash, "", overrides, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, Futurenet, net)
 }
@@ -98,7 +124,7 @@ func TestResolveNetwork_NotFound(t *testing.T) {
 		Futurenet: empty.URL(),
 	}
 
-	_, err := resolveNetwork(context.Background(), probeTestHash, "", overrides)
+	_, err := resolveNetwork(context.Background(), probeTestHash, "", overrides, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -116,7 +142,7 @@ func TestResolveNetwork_ContextAlreadyCancelled(t *testing.T) {
 		Futurenet: empty.URL(),
 	}
 
-	_, err := resolveNetwork(ctx, probeTestHash, "", overrides)
+	_, err := resolveNetwork(ctx, probeTestHash, "", overrides, nil)
 	assert.Error(t, err)
 }
 
@@ -130,7 +156,7 @@ func TestResolveNetwork_NotFoundErrorMentionsAllNetworks(t *testing.T) {
 		Futurenet: empty.URL(),
 	}
 
-	_, err := resolveNetwork(context.Background(), probeTestHash, "", overrides)
+	_, err := resolveNetwork(context.Background(), probeTestHash, "", overrides, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), string(Mainnet))
 	assert.Contains(t, err.Error(), string(Testnet))

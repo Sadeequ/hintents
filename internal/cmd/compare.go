@@ -28,6 +28,7 @@ var (
 	cmpNetworkFlag   string
 	cmpRPCURLFlag    string
 	cmpRPCTokenFlag  string
+	cmpRPCHeadersFlag string
 	cmpLocalWasmFlag string
 	cmpArgsFlag      []string
 	cmpVerboseFlag   bool
@@ -91,6 +92,8 @@ func init() {
 		"Custom Soroban RPC URL")
 	compareCmd.Flags().StringVar(&cmpRPCTokenFlag, "rpc-token", "",
 		"RPC authentication token (or ERST_RPC_TOKEN env var)")
+	compareCmd.Flags().StringVar(&cmpRPCHeadersFlag, "rpc-headers", "",
+		"Additional headers to include on RPC requests (JSON or key=value list)")
 	compareCmd.Flags().StringVar(&cmpLocalWasmFlag, "wasm", "",
 		"Path to local WASM file (required)")
 	compareCmd.Flags().StringSliceVar(&cmpArgsFlag, "args", []string{},
@@ -147,6 +150,22 @@ func runCompare(cmd *cobra.Command, cmdArgs []string) error {
 	clientOpts := []rpc.ClientOption{
 		rpc.WithNetwork(rpc.Network(cmpNetworkFlag)),
 		rpc.WithToken(token),
+	}
+	// attach headers if provided via flag or environment
+	headersStr := cmpRPCHeadersFlag
+	if headersStr == "" {
+		headersStr = os.Getenv("ERST_RPC_HEADERS")
+		if headersStr == "" {
+			headersStr = os.Getenv("STELLAR_RPC_HEADERS")
+		}
+	}
+	if headersStr == "" {
+		if cfg, err := config.Load(); err == nil && cfg.RpcHeaders != "" {
+			headersStr = cfg.RpcHeaders
+		}
+	}
+	if headersStr != "" {
+		clientOpts = append(clientOpts, rpc.WithHeaders(rpc.ParseHeaders(headersStr)))
 	}
 	if cmpRPCURLFlag != "" {
 		urls := splitTrimmed(cmpRPCURLFlag)

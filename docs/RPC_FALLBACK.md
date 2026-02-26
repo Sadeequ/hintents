@@ -9,15 +9,23 @@ ERST supports multiple RPC endpoints with automatic failover. If the primary RPC
 ### CLI Flag
 
 ```bash
+# basic URL list
 erst debug <tx> --rpc https://rpc1.com,https://rpc2.com,https://rpc3.com
+
+# add custom headers using JSON or key=value syntax
+erst debug <tx> --rpc https://rpc1.com --rpc-headers '{"Authorization":"Bearer abc"}'
 ```
 
-### Environment Variable
+### Environment Variables
 
 ```bash
 export STELLAR_RPC_URLS=https://rpc1.com,https://rpc2.com,https://rpc3.com
+# comma-separated key=value pairs or JSON object
+export STELLAR_RPC_HEADERS='X-Forwarded-For=1.2.3.4,X-Env=test'
 erst debug <tx>
 ```
+
+You can also specify the `rpc_headers` setting in your `~/.erst/config.json` (or equivalent) which will be used when no CLI flag or environment variable is set.
 
 ### Options
 
@@ -25,6 +33,7 @@ erst debug <tx>
 |--------|--------------|---------|-------------|
 | Timeout | `--timeout` | 30000ms | Request timeout for each attempt |
 | Retries | `--retries` | 3 | Number of local retries per endpoint |
+| Headers | `--rpc-headers` | none | Add custom headers to each RPC request (JSON or key=value list) |
 
 ## Fallback Behavior
 

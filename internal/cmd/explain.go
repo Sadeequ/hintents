@@ -19,6 +19,7 @@ var (
 	explainNetworkFlag string
 	explainRPCURLFlag  string
 	explainRPCToken    string
+	explainRPCHeaders  string
 )
 
 var explainCmd = &cobra.Command{
@@ -99,6 +100,22 @@ func explainFromNetwork(cmd *cobra.Command, txHash string) error {
 		rpc.WithNetwork(rpc.Network(explainNetworkFlag)),
 		rpc.WithToken(token),
 	}
+	// headers
+	headersStr := explainRPCHeaders
+	if headersStr == "" {
+		headersStr = os.Getenv("ERST_RPC_HEADERS")
+		if headersStr == "" {
+			headersStr = os.Getenv("STELLAR_RPC_HEADERS")
+		}
+	}
+	if headersStr == "" {
+		if cfg, err := config.LoadConfig(); err == nil && cfg.RpcHeaders != "" {
+			headersStr = cfg.RpcHeaders
+		}
+	}
+	if headersStr != "" {
+		opts = append(opts, rpc.WithHeaders(rpc.ParseHeaders(headersStr)))
+	}
 	if explainRPCURLFlag != "" {
 		opts = append(opts, rpc.WithHorizonURL(explainRPCURLFlag))
 	}
@@ -158,5 +175,6 @@ func init() {
 	explainCmd.Flags().StringVarP(&explainNetworkFlag, "network", "n", "mainnet", "Stellar network (testnet, mainnet, futurenet)")
 	explainCmd.Flags().StringVar(&explainRPCURLFlag, "rpc-url", "", "Custom RPC URL")
 	explainCmd.Flags().StringVar(&explainRPCToken, "rpc-token", "", "RPC authentication token (can also use ERST_RPC_TOKEN env var)")
+	explainCmd.Flags().StringVar(&explainRPCHeaders, "rpc-headers", "", "Additional headers to include on RPC requests (JSON or key=value list)")
 	rootCmd.AddCommand(explainCmd)
 }

@@ -5,8 +5,10 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/dotandev/hintents/internal/authtrace"
+	"github.com/dotandev/hintents/internal/config"
 	"github.com/dotandev/hintents/internal/errors"
 	"github.com/dotandev/hintents/internal/logger"
 	"github.com/dotandev/hintents/internal/rpc"
@@ -16,6 +18,8 @@ import (
 var (
 	authNetworkFlag    string
 	authRPCURLFlag     string
+	authRPCTokenFlag   string
+	authRPCHeadersFlag string
 	authDetailedFlag   bool
 	authJSONOutputFlag bool
 )
@@ -46,6 +50,25 @@ Examples:
 		}
 		if authRPCURLFlag != "" {
 			opts = append(opts, rpc.WithHorizonURL(authRPCURLFlag))
+		}
+		if authRPCTokenFlag != "" {
+			opts = append(opts, rpc.WithToken(authRPCTokenFlag))
+		}
+		// headers (flag -> env -> config)
+		headersStr := authRPCHeadersFlag
+		if headersStr == "" {
+			headersStr = os.Getenv("ERST_RPC_HEADERS")
+			if headersStr == "" {
+				headersStr = os.Getenv("STELLAR_RPC_HEADERS")
+			}
+		}
+		if headersStr == "" {
+			if cfg, err := config.LoadConfig(); err == nil && cfg.RpcHeaders != "" {
+				headersStr = cfg.RpcHeaders
+			}
+		}
+		if headersStr != "" {
+			opts = append(opts, rpc.WithHeaders(rpc.ParseHeaders(headersStr)))
 		}
 
 		client, err := rpc.NewClient(opts...)
@@ -108,6 +131,8 @@ func printDetailedAnalysis(reporter *authtrace.DetailedReporter) {
 func init() {
 	authDebugCmd.Flags().StringVarP(&authNetworkFlag, "network", "n", string(rpc.Mainnet), "Stellar network (testnet, mainnet, futurenet)")
 	authDebugCmd.Flags().StringVar(&authRPCURLFlag, "rpc-url", "", "Custom Horizon RPC URL")
+	authDebugCmd.Flags().StringVar(&authRPCTokenFlag, "rpc-token", "", "RPC authentication token (or ERST_RPC_TOKEN env var)")
+	authDebugCmd.Flags().StringVar(&authRPCHeadersFlag, "rpc-headers", "", "Additional headers to include on RPC requests (JSON or key=value list)")
 	authDebugCmd.Flags().BoolVar(&authDetailedFlag, "detailed", false, "Show detailed analysis and missing signatures")
 	authDebugCmd.Flags().BoolVar(&authJSONOutputFlag, "json", false, "Output as JSON")
 	rootCmd.AddCommand(authDebugCmd)

@@ -39,6 +39,7 @@ var (
 	networkFlag        string
 	rpcURLFlag         string
 	rpcTokenFlag       string
+	rpcHeadersFlag     string
 	tracingEnabled     bool
 	otlpExporterURL    string
 	generateTrace      bool
@@ -93,6 +94,7 @@ Example:
 	cmd.Flags().StringVarP(&networkFlag, "network", "n", string(rpc.Mainnet), "Stellar network to use (testnet, mainnet, futurenet)")
 	cmd.Flags().StringVar(&rpcURLFlag, "rpc-url", "", "Custom Horizon RPC URL to use")
 	cmd.Flags().StringVar(&rpcTokenFlag, "rpc-token", "", "RPC authentication token (can also use ERST_RPC_TOKEN env var)")
+	cmd.Flags().StringVar(&rpcHeadersFlag, "rpc-headers", "", "Additional headers to include on RPC requests (JSON or key=value list)")
 
 	return cmd
 }
@@ -111,9 +113,25 @@ func (d *DebugCommand) runDebug(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	headersStr := rpcHeadersFlag
+	if headersStr == "" {
+		headersStr = os.Getenv("ERST_RPC_HEADERS")
+		if headersStr == "" {
+			headersStr = os.Getenv("STELLAR_RPC_HEADERS")
+		}
+	}
+	if headersStr == "" {
+		if cfg2, err2 := config.LoadConfig(); err2 == nil && cfg2.RpcHeaders != "" {
+			headersStr = cfg2.RpcHeaders
+		}
+	}
+
 	opts := []rpc.ClientOption{
 		rpc.WithNetwork(rpc.Network(networkFlag)),
 		rpc.WithToken(token),
+	}
+	if headersStr != "" {
+		opts = append(opts, rpc.WithHeaders(rpc.ParseHeaders(headersStr)))
 	}
 	if rpcURLFlag != "" {
 		opts = append(opts, rpc.WithHorizonURL(rpcURLFlag))
@@ -206,7 +224,26 @@ Local WASM Replay Mode:
 			}
 			probeCtx, probeCancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 			defer probeCancel()
-			if resolved, err := rpc.ResolveNetwork(probeCtx, args[0], token); err == nil {
+			if resolved, err := rpc.ResolveNetwork(probeCtx, args[0], token, func() map[string]string {
+				// build headers string using same precedence as other commands
+				headersStr := rpcHeadersFlag
+				if headersStr == "" {
+					headersStr = os.Getenv("ERST_RPC_HEADERS")
+					if headersStr == "" {
+						headersStr = os.Getenv("STELLAR_RPC_HEADERS")
+					}
+				}
+				if headersStr == "" {
+					if cfg, err := config.LoadConfig(); err == nil && cfg.RpcHeaders != "" {
+						headersStr = cfg.RpcHeaders
+					}
+				}
+				headers := rpc.ParseHeaders(headersStr)
+				if headers == nil || len(headers) == 0 {
+					headers = nil
+				}
+				return headers
+			}()); err == nil {
 				networkFlag = string(resolved)
 				fmt.Printf("Resolved network: %s\n", networkFlag)
 			}
@@ -292,36 +329,39 @@ Local WASM Replay Mode:
 			}
 		}
 
-		opts := []rpc.ClientOption{
-			rpc.WithNetwork(rpc.Network(networkFlag)),
-			rpc.WithToken(token),
+	headersStr := rpcHeadersFlag
+	if headersStr == "" {
+		headersStr = os.Getenv("ERST_RPC_HEADERS")
+		if headersStr == "" {
+			headersStr = os.Getenv("STELLAR_RPC_HEADERS")
 		}
+	}
+	if headersStr == "" {
+		if cfg2, err2 := config.Load(); err2 == nil && cfg2.RpcHeaders != "" {
+			headersStr = cfg2.RpcHeaders
+		}
+	}
 
-		if rpcURLFlag != "" {
-			urls := strings.Split(rpcURLFlag, ",")
-			for i := range urls {
-				urls[i] = strings.TrimSpace(urls[i])
+	opts := []rpc.ClientOption{
+		rpc.WithNetwork(rpc.Network(networkFlag)),
+		rpc.WithToken(token),
+	}
+	if headersStr != "" {
+		opts = append(opts, rpc.WithHeaders(rpc.ParseHeaders(headersStr)))
+	}
+
+	if rpcURLFlag != "" {
+		opts = append(opts, rpc.WithHorizonURL(rpcURLFlag))
+	} else {
+		if cfg, err := config.Load(); err == nil {
+			if len(cfg.RpcUrls) > 0 {
+				opts = append(opts, rpc.WithAltURLs(cfg.RpcUrls))
+				horizonURL = cfg.RpcUrls[0]
+			} else if cfg.RpcUrl != "" {
+				opts = append(opts, rpc.WithHorizonURL(cfg.RpcUrl))
+				horizonURL = cfg.RpcUrl
 			}
-			opts = append(opts, rpc.WithAltURLs(urls))
-			horizonURL = urls[0]
-		} else {
-			cfg, err := config.Load()
-			if err == nil {
-				if len(cfg.RpcUrls) > 0 {
-					opts = append(opts, rpc.WithAltURLs(cfg.RpcUrls))
-					horizonURL = cfg.RpcUrls[0]
-				} else if cfg.RpcUrl != "" {
-					opts = append(opts, rpc.WithHorizonURL(cfg.RpcUrl))
-					horizonURL = cfg.RpcUrl
-				}
-			}
 		}
-
-		client, err := rpc.NewClient(opts...)
-		if err != nil {
-			return errors.WrapValidationError(fmt.Sprintf("failed to create client: %v", err))
-		}
-
 		if horizonURL == "" {
 			// Extract horizon URL from valid client if not explicitly set
 			horizonURL = client.HorizonURL
@@ -498,6 +538,21 @@ Local WASM Replay Mode:
 					compareOpts := []rpc.ClientOption{
 						rpc.WithNetwork(rpc.Network(compareNetworkFlag)),
 						rpc.WithToken(rpcTokenFlag),
+					}
+					headersStr := rpcHeadersFlag
+					if headersStr == "" {
+						headersStr = os.Getenv("ERST_RPC_HEADERS")
+						if headersStr == "" {
+							headersStr = os.Getenv("STELLAR_RPC_HEADERS")
+						}
+					}
+					if headersStr == "" {
+						if cfg2, err2 := config.LoadConfig(); err2 == nil && cfg2.RpcHeaders != "" {
+							headersStr = cfg2.RpcHeaders
+						}
+					}
+					if headersStr != "" {
+						compareOpts = append(compareOpts, rpc.WithHeaders(rpc.ParseHeaders(headersStr)))
 					}
 					compareClient, clientErr := rpc.NewClient(compareOpts...)
 					if clientErr != nil {

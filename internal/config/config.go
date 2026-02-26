@@ -40,6 +40,7 @@ type Config struct {
 	LogLevel          string   `json:"log_level,omitempty"`
 	CachePath         string   `json:"cache_path,omitempty"`
 	RPCToken          string   `json:"rpc_token,omitempty"`
+	RpcHeaders        string   `json:"rpc_headers,omitempty"`
 	// CrashReporting enables opt-in anonymous crash reporting.
 	// Set via crash_reporting = true in config or ERST_CRASH_REPORTING=true.
 	CrashReporting bool `json:"crash_reporting,omitempty"`
@@ -109,6 +110,7 @@ func Load() (*Config, error) {
 		LogLevel:       getEnv("ERST_LOG_LEVEL", defaultConfig.LogLevel),
 		CachePath:      getEnv("ERST_CACHE_PATH", defaultConfig.CachePath),
 		RPCToken:       getEnv("ERST_RPC_TOKEN", ""),
+		RpcHeaders:     getEnv("ERST_RPC_HEADERS", ""),
 		CrashEndpoint:  getEnv("ERST_CRASH_ENDPOINT", ""),
 		CrashSentryDSN: getEnv("ERST_SENTRY_DSN", ""),
 		RequestTimeout: defaultRequestTimeout,
@@ -137,6 +139,13 @@ func Load() (*Config, error) {
 		for i := range cfg.RpcUrls {
 			cfg.RpcUrls[i] = strings.TrimSpace(cfg.RpcUrls[i])
 		}
+	}
+
+	// Load RPC headers from environment if provided (comma-separated key=value or JSON)
+	if headersEnv := os.Getenv("STELLAR_RPC_HEADERS"); headersEnv != "" {
+		cfg.RpcHeaders = headersEnv
+	} else if headersEnv := os.Getenv("ERST_RPC_HEADERS"); headersEnv != "" {
+		cfg.RpcHeaders = headersEnv
 	}
 
 	if err := cfg.loadFromFile(); err != nil {

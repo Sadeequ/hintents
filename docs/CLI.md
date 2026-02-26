@@ -45,7 +45,10 @@ erst debug --network testnet <tx-hash>
   -h, --help             help for debug
   -n, --network string   Stellar network to use (testnet, mainnet, futurenet) (default "mainnet")
       --rpc-url string   Custom Horizon RPC URL to use
+      --rpc-headers string  Additional headers to include on RPC requests (JSON or comma-separated key=value list)
 ```
+
+> **Note:** The `--rpc-headers` flag (or `STELLAR_RPC_HEADERS` / `ERST_RPC_HEADERS` environment variable or `rpc_headers` setting in your configuration file) can be used with any command that performs network RPC calls, allowing custom headers for proxies/firewalls.
 
 ### Arguments
 
@@ -87,8 +90,8 @@ erst generate-test --name my_regression_test <tx-hash>
       --name string      Custom test name (defaults to transaction hash)
   -o, --output string    Output directory (defaults to current directory)
       --rpc-url string   Custom Horizon RPC URL to use
+      --rpc-headers string  Additional headers to include on RPC requests (JSON or comma-separated key=value list)
 ```
-
 ### Arguments
 
 | Argument | Description |

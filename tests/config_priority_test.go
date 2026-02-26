@@ -38,7 +38,7 @@ func TestConfigPriority(t *testing.T) {
 	require.NoError(t, err)
 
 	configFile := filepath.Join(configDir, "config.json")
-	configData := []byte(`{"rpc_token": "CONFIG_TOKEN"}`)
+	configData := []byte(`{"rpc_token": "CONFIG_TOKEN", "rpc_headers": "CONFIG_HDR"}`)
 	err = os.WriteFile(configFile, configData, 0600)
 	require.NoError(t, err)
 
@@ -55,6 +55,24 @@ func TestConfigPriority(t *testing.T) {
 			}
 		}
 		return token
+	}
+
+	// Helper to resolve headers with same precedence rules
+	resolveHeaders := func(flagVal string) string {
+		headers := flagVal
+		if headers == "" {
+			headers = os.Getenv("ERST_RPC_HEADERS")
+			if headers == "" {
+				headers = os.Getenv("STELLAR_RPC_HEADERS")
+			}
+		}
+		if headers == "" {
+			cfg, err := config.LoadConfig()
+			if err == nil && cfg.RpcHeaders != "" {
+				headers = cfg.RpcHeaders
+			}
+		}
+		return headers
 	}
 
 	t.Run("ConfigOnly", func(t *testing.T) {
@@ -79,5 +97,23 @@ func TestConfigPriority(t *testing.T) {
 
 		token := resolveToken("FLAG_TOKEN")
 		assert.Equal(t, "FLAG_TOKEN", token, "Flag should override env and config")
+	})
+
+	// Headers precedence
+	t.Run("HeadersConfigPriority", func(t *testing.T) {
+		// ensure clean env
+		os.Unsetenv("ERST_RPC_HEADERS")
+		os.Unsetenv("STELLAR_RPC_HEADERS")
+
+		headers := resolveHeaders("")
+		assert.Equal(t, "CONFIG_HDR", headers)
+
+		os.Setenv("ERST_RPC_HEADERS", "ENV_HDR")
+		defer os.Unsetenv("ERST_RPC_HEADERS")
+		headers = resolveHeaders("")
+		assert.Equal(t, "ENV_HDR", headers)
+
+		headers = resolveHeaders("FLAG_HDR")
+		assert.Equal(t, "FLAG_HDR", headers)
 	})
 }

@@ -57,6 +57,23 @@ describe('RPCConfigParser', () => {
         });
     });
 
+    describe('parseHeaders', () => {
+        it('should parse a simple JSON string', () => {
+            const headers = RPCConfigParser.parseHeaders('{"A":"1","B":2}');
+            expect(headers).toEqual({ A: '1', B: '2' });
+        });
+
+        it('should parse comma-separated key=value pairs', () => {
+            const headers = RPCConfigParser.parseHeaders('X=1,Y:2,Z=three');
+            expect(headers).toEqual({ X: '1', Y: '2', Z: 'three' });
+        });
+
+        it('should ignore malformed segments', () => {
+            const headers = RPCConfigParser.parseHeaders('X=1,notvalid,Y=2');
+            expect(headers).toEqual({ X: '1', Y: '2' });
+        });
+    });
+
     describe('loadConfig', () => {
         const originalEnv = process.env;
 
@@ -99,6 +116,29 @@ describe('RPCConfigParser', () => {
         it('should throw error if no RPC URLs configured', () => {
             delete process.env.STELLAR_RPC_URLS;
             expect(() => RPCConfigParser.loadConfig({})).toThrow('No RPC URLs configured');
+        });
+
+        it('should carry headers through from options when provided as object', () => {
+            const headers = { 'X-Auth': 'abc', 'X-Test': '123' };
+            const config = RPCConfigParser.loadConfig({ rpc: 'https://rpc.com', headers });
+            expect(config.headers).toEqual(headers);
+        });
+
+        it('should parse headers from options when provided as JSON string', () => {
+            const json = JSON.stringify({ 'X-Auth': 'abc' });
+            const config = RPCConfigParser.loadConfig({ rpc: 'https://rpc.com', headers: json });
+            expect(config.headers).toEqual({ 'X-Auth': 'abc' });
+        });
+
+        it('should parse comma-separated headers from options', () => {
+            const config = RPCConfigParser.loadConfig({ rpc: 'https://rpc.com', headers: 'X-Auth=abc, X-Test:123' });
+            expect(config.headers).toEqual({ 'X-Auth': 'abc', 'X-Test': '123' });
+        });
+
+        it('should load headers from STELLAR_RPC_HEADERS env var', () => {
+            process.env.STELLAR_RPC_HEADERS = 'X-Env=foo,X-Other=bar';
+            const config = RPCConfigParser.loadConfig({ rpc: 'https://rpc.com' });
+            expect(config.headers).toEqual({ 'X-Env': 'foo', 'X-Other': 'bar' });
         });
     });
 });

@@ -5,7 +5,9 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/dotandev/hintents/internal/config"
 	"github.com/dotandev/hintents/internal/rpc"
 	"github.com/dotandev/hintents/internal/testgen"
 	"github.com/spf13/cobra"
@@ -41,11 +43,19 @@ Example:
 		if rpcURLFlag != "" {
 			opts = append(opts, rpc.WithHorizonURL(rpcURLFlag))
 		}
-
-		client, err := rpc.NewClient(opts...)
-		if err != nil {
-			return fmt.Errorf("failed to create client: %w", err)
+		// add headers if provided
+		headersStr := rpcHeadersFlag
+		if headersStr == "" {
+			headersStr = os.Getenv("ERST_RPC_HEADERS")
+			if headersStr == "" {
+				headersStr = os.Getenv("STELLAR_RPC_HEADERS")
+			}
 		}
+	if headersStr == "" {
+		if cfg, err := config.Load(); err == nil && cfg.RpcHeaders != "" {
+			headersStr = cfg.RpcHeaders
+		}
+	}
 
 		// Get current working directory as default output
 		if genTestOutput == "" {
@@ -73,6 +83,7 @@ func init() {
 	generateTestCmd.Flags().StringVarP(&networkFlag, "network", "n", string(rpc.Mainnet), "Stellar network to use (testnet, mainnet, futurenet)")
 	generateTestCmd.Flags().StringVar(&rpcURLFlag, "rpc-url", "", "Custom Horizon RPC URL to use")
 	generateTestCmd.Flags().StringVar(&rpcTokenFlag, "rpc-token", "", "RPC authentication token (can also use ERST_RPC_TOKEN env var)")
+	generateTestCmd.Flags().StringVar(&rpcHeadersFlag, "rpc-headers", "", "Additional headers to include on RPC requests (JSON or key=value list)")
 
 	rootCmd.AddCommand(generateTestCmd)
 }

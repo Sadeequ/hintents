@@ -19,6 +19,7 @@ var (
 	dryRunNetworkFlag  string
 	dryRunRPCURLFlag   string
 	dryRunRPCTokenFlag string
+	dryRunRPCHeadersFlag string
 )
 
 // dryRunCmd performs a pre-submission simulation of a locally provided transaction envelope XDR
@@ -55,6 +56,7 @@ func init() {
 	dryRunCmd.Flags().StringVarP(&dryRunNetworkFlag, "network", "n", string(rpc.Mainnet), "Stellar network to use (testnet, mainnet, futurenet)")
 	dryRunCmd.Flags().StringVar(&dryRunRPCURLFlag, "rpc-url", "", "Custom Horizon RPC URL to use")
 	dryRunCmd.Flags().StringVar(&dryRunRPCTokenFlag, "rpc-token", "", "RPC authentication token (can also use ERST_RPC_TOKEN env var)")
+	dryRunCmd.Flags().StringVar(&dryRunRPCHeadersFlag, "rpc-headers", "", "Additional headers to include on RPC requests (JSON or key=value list)")
 
 	rootCmd.AddCommand(dryRunCmd)
 }
@@ -84,6 +86,22 @@ func runDryRun(cmd *cobra.Command, args []string) error {
 	opts := []rpc.ClientOption{
 		rpc.WithNetwork(rpc.Network(dryRunNetworkFlag)),
 		rpc.WithToken(dryRunRPCTokenFlag),
+	}
+	// add headers if present
+	headersStr := dryRunRPCHeadersFlag
+	if headersStr == "" {
+		headersStr = os.Getenv("ERST_RPC_HEADERS")
+		if headersStr == "" {
+			headersStr = os.Getenv("STELLAR_RPC_HEADERS")
+		}
+	}
+	if headersStr == "" {
+		if cfg, err := config.Load(); err == nil && cfg.RpcHeaders != "" {
+			headersStr = cfg.RpcHeaders
+		}
+	}
+	if headersStr != "" {
+		opts = append(opts, rpc.WithHeaders(rpc.ParseHeaders(headersStr)))
 	}
 	if dryRunRPCURLFlag != "" {
 		opts = append(opts, rpc.WithHorizonURL(dryRunRPCURLFlag))

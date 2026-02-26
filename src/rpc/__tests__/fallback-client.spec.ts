@@ -35,6 +35,20 @@ describe('FallbackRPCClient', () => {
     });
 
     describe('request with fallback', () => {
+        it('should include custom headers when provided in config', async () => {
+            // re-create client with a header set
+            const cfgWithHeader: RPCConfig = { ...config, headers: { 'X-Custom': 'value' } };
+            client = new FallbackRPCClient(cfgWithHeader);
+
+            mock.onPost('https://rpc1.test.com/test').reply(200, { success: true });
+
+            const result = await client.request('/test', {});
+            expect(result).toEqual({ success: true });
+
+            // verify that header was sent
+            expect(mock.history.post.length).toBeGreaterThan(0);
+            expect(mock.history.post[0].headers!['X-Custom']).toBe('value');
+        });
         it('should succeed with primary RPC', async () => {
             mock.onPost('https://rpc1.test.com/test').reply(200, { success: true });
 

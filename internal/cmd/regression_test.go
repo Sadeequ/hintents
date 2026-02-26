@@ -5,7 +5,9 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/dotandev/hintents/internal/config"
 	"github.com/dotandev/hintents/internal/rpc"
 	"github.com/dotandev/hintents/internal/simulator"
 	"github.com/spf13/cobra"
@@ -66,6 +68,22 @@ func runRegressionTest(cmd *cobra.Command, args []string) error {
 	}
 	if rpcURLFlag != "" {
 		opts = append(opts, rpc.WithHorizonURL(rpcURLFlag))
+	}
+	// add headers if provided (flag -> env -> config)
+	headersStr := rpcHeadersFlag
+	if headersStr == "" {
+		headersStr = os.Getenv("ERST_RPC_HEADERS")
+		if headersStr == "" {
+			headersStr = os.Getenv("STELLAR_RPC_HEADERS")
+		}
+	}
+	if headersStr == "" {
+		if cfg, err := config.Load(); err == nil && cfg.RpcHeaders != "" {
+			headersStr = cfg.RpcHeaders
+		}
+	}
+	if headersStr != "" {
+		opts = append(opts, rpc.WithHeaders(rpc.ParseHeaders(headersStr)))
 	}
 
 	client, err := rpc.NewClient(opts...)
@@ -167,6 +185,12 @@ func init() {
 		"rpc-token",
 		"",
 		"RPC authentication token",
+	)
+	regressionTestCmd.Flags().StringVar(
+		&rpcHeadersFlag,
+		"rpc-headers",
+		"",
+		"Additional headers to include on RPC requests (JSON or key=value list)",
 	)
 
 	regressionTestCmd.Flags().BoolVarP(

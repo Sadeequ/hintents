@@ -4,9 +4,11 @@
 package rpc
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/dotandev/hintents/internal/errors"
@@ -25,6 +27,8 @@ type clientBuilder struct {
 	config         *NetworkConfig
 	httpClient     *http.Client
 	requestTimeout time.Duration
+	// custom headers to inject on each request
+	headers         map[string]string
 }
 
 const defaultHTTPTimeout = 15 * time.Second
@@ -34,6 +38,7 @@ func newBuilder() *clientBuilder {
 		network:        Mainnet,
 		cacheEnabled:   true,
 		requestTimeout: defaultHTTPTimeout,
+		headers:         make(map[string]string),
 	}
 }
 
@@ -52,6 +57,47 @@ func WithToken(token string) ClientOption {
 		b.token = token
 		return nil
 	}
+}
+
+func WithHeaders(headers map[string]string) ClientOption {
+	return func(b *clientBuilder) error {
+		b.headers = headers
+		return nil
+	}
+}
+
+// ParseHeaders converts a string into a header map. The input may be a JSON
+// object (e.g. '{"A":"1"}') or a comma-separated list of key=value or
+// key:value pairs. Empty input returns an empty map.
+func ParseHeaders(input string) map[string]string {
+	headers := make(map[string]string)
+	if input == "" {
+		return headers
+	}
+
+	// try JSON first
+	var obj map[string]string
+	if err := json.Unmarshal([]byte(input), &obj); err == nil {
+		return obj
+	}
+
+	for _, part := range strings.Split(input, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		idx := strings.IndexAny(part, "=:")
+		if idx == -1 {
+			continue
+		}
+		key := strings.TrimSpace(part[:idx])
+		value := strings.TrimSpace(part[idx+1:])
+		if key != "" && value != "" {
+			headers[key] = value
+		}
+	}
+
+	return headers
 }
 
 func WithHorizonURL(url string) ClientOption {
@@ -207,7 +253,7 @@ func (b *clientBuilder) build() (*Client, error) {
 	}
 
 	if b.httpClient == nil {
-		b.httpClient = createHTTPClient(b.token, b.requestTimeout)
+		b.httpClient = createHTTPClient(b.token, b.headers, b.requestTimeout)
 	}
 
 	if len(b.altURLs) == 0 && b.horizonURL != "" {
@@ -235,6 +281,7 @@ func (b *clientBuilder) build() (*Client, error) {
 		token:        b.token,
 		Config:       *b.config,
 		CacheEnabled: b.cacheEnabled,
+		Headers:      b.headers,
 		failures:     make(map[string]int),
 		lastFailure:  make(map[string]time.Time),
 	}, nil

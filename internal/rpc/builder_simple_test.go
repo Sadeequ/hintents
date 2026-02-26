@@ -4,6 +4,8 @@
 package rpc
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -58,6 +60,56 @@ func TestBuilderWithToken(t *testing.T) {
 	}
 	if client.token != token {
 		t.Errorf("expected token %s, got %s", token, client.token)
+	}
+}
+
+func TestParseHeadersHelper(t *testing.T) {
+	jsonStr := "{\"A\":\"1\",\"B\":2}"
+	h := ParseHeaders(jsonStr)
+	if h["A"] != "1" || h["B"] != "2" {
+		t.Errorf("unexpected headers parsed from JSON: %v", h)
+	}
+
+	kv := "X=1,Y:2,Z=three"
+	h2 := ParseHeaders(kv)
+	if h2["X"] != "1" || h2["Y"] != "2" || h2["Z"] != "three" {
+		t.Errorf("unexpected headers parsed from kv: %v", h2)
+	}
+}
+
+func TestBuilderWithHeaders(t *testing.T) {
+	headers := map[string]string{"X-Test": "header"}
+	client, err := NewClient(WithHeaders(headers))
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if client.Headers == nil {
+		t.Fatal("expected headers to be set on client")
+	}
+	if client.Headers["X-Test"] != "header" {
+		t.Errorf("expected header value 'header', got '%s'", client.Headers["X-Test"])
+	}
+
+	// ensure HTTP requests include the header by using a test server
+	tserver := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Test") != "header" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer tserver.Close()
+
+	// create client with custom horizon URL pointing at test server
+	client, err = NewClient(WithHorizonURL(tserver.URL), WithHeaders(headers))
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+
+	// perform a simple request which will use the headers
+	_, err = client.Horizon.Root()
+	if err != nil {
+		t.Fatalf("expected successful request, got %v", err)
 	}
 }
 
