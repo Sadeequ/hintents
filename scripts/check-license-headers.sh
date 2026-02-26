@@ -10,7 +10,8 @@
 set -e
 
 MISSING_HEADERS=0
-EXPECTED_HEADER="Copyright 2025 Erst Users"
+# Allow any year in the 2020s since files may be created in different years
+EXPECTED_HEADER="Copyright 202[0-9] Erst Users"
 
 echo "Checking for license headers in Go and Rust files..."
 
@@ -18,7 +19,8 @@ echo "Checking for license headers in Go and Rust files..."
 echo ""
 echo "Checking Go files (.go)..."
 while IFS= read -r file; do
-    if ! head -1 "$file" | grep -q "$EXPECTED_HEADER"; then
+    # use extended regex to match the expected pattern
+    if ! head -1 "$file" | grep -Eq "$EXPECTED_HEADER"; then
         echo "  [FAIL] Missing license header: $file"
         MISSING_HEADERS=$((MISSING_HEADERS + 1))
     else
@@ -30,7 +32,8 @@ done < <(find . -type d \( -name "target" -o -name "vendor" \) -prune -o -name "
 echo ""
 echo "Checking Rust files (.rs)..."
 while IFS= read -r file; do
-    if ! head -1 "$file" | grep -q "$EXPECTED_HEADER"; then
+    # use extended regex to match the expected pattern
+    if ! head -1 "$file" | grep -Eq "$EXPECTED_HEADER"; then
         echo "  [FAIL] Missing license header: $file"
         MISSING_HEADERS=$((MISSING_HEADERS + 1))
     else
