@@ -125,14 +125,6 @@ func parseWASM(data []byte) (*Parser, error) {
 
 	var dwarfData *dwarf.Data
 	var err error
-	
-	// Look for .debug_info section; dwarf.New expects the 8 canonical DWARF sections.
-	if infoSection, ok := sections[".debug_info"]; ok {
-		abbrev, _ := sections[".debug_abbrev"]
-		line, _ := sections[".debug_line"]
-		ranges, _ := sections[".debug_ranges"]
-		str, _ := sections[".debug_str"]
-		dwarfData, err = dwarf.New(abbrev, nil, nil, infoSection, line, nil, ranges, str)
 
 	// Extract primary DWARF sections from WASM custom sections
 	infoSec := sections[".debug_info"]
@@ -142,7 +134,7 @@ func parseWASM(data []byte) (*Parser, error) {
 	rangesSec := sections[".debug_ranges"]
 
 	if infoSec != nil {
-		dwarfData, err = dwarf.New(infoSec, abbrevSec, nil, strSec, lineSec, nil, rangesSec, nil)
+		dwarfData, err = dwarf.New(abbrevSec, nil, nil, infoSec, lineSec, nil, rangesSec, strSec)
 	}
 
 	if dwarfData == nil || err != nil {
@@ -479,7 +471,7 @@ func (p *Parser) FindLocalVarsAt(addr uint64) ([]LocalVar, error) {
 
 	var inScope []LocalVar
 	for _, v := range subprogram.LocalVariables {
-		if addr >= uint64(v.StartLine) { 
+		if addr >= uint64(v.StartLine) {
 			inScope = append(inScope, v)
 		}
 	}
@@ -562,9 +554,9 @@ func (p *Parser) findLineInProgram(lr *dwarf.LineReader, addr uint64) *SourceLoc
 // DWARF location expression opcodes (DW_OP_*) used in formatLocation.
 // These are defined in the DWARF spec and are not exported by debug/dwarf.
 const (
-	dwOpAddr           = 0x03 // DW_OP_addr — constant address
-	dwOpStackValue     = 0x9f // DW_OP_stack_value — value is on the expression stack
-	dwOpLit0           = 0x30 // DW_OP_lit0 — literal 0 (marks end-of-list in some contexts)
+	dwOpAddr       = 0x03 // DW_OP_addr — constant address
+	dwOpStackValue = 0x9f // DW_OP_stack_value — value is on the expression stack
+	dwOpLit0       = 0x30 // DW_OP_lit0 — literal 0 (marks end-of-list in some contexts)
 )
 
 // formatLocation formats a DWARF location description
@@ -604,13 +596,4 @@ func (p *Parser) HasDebugInfo() bool {
 // BinaryType returns the type of binary being parsed
 func (p *Parser) BinaryType() string {
 	return p.binaryType
-}
-
-// NewParserFromFile creates a new DWARF parser from a filesystem path.
-func NewParserFromFile(path string) (*Parser, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read file: %w", err)
-	}
-	return NewParser(data)
 }

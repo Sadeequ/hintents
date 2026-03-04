@@ -30,7 +30,6 @@ func txNotFoundRoute() MockRoute {
 	}
 }
 
-
 func TestResolveNetwork_HeadersSent(t *testing.T) {
 	seen := false
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

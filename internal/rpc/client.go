@@ -104,15 +104,15 @@ var (
 
 // Client handles interactions with the Stellar Network
 type Client struct {
-	Horizon      horizonclient.ClientInterface
-	HorizonURL   string
-	Network      Network
-	SorobanURL   string
-	AltURLs      []string
-	currIndex    int
-	mu           sync.RWMutex
-	httpClient   *http.Client
-	token        string // stored for reference, not logged
+	Horizon    horizonclient.ClientInterface
+	HorizonURL string
+	Network    Network
+	SorobanURL string
+	AltURLs    []string
+	currIndex  int
+	mu         sync.RWMutex
+	httpClient *http.Client
+	token      string // stored for reference, not logged
 	// headers that will be attached to each HTTP request
 	Headers      map[string]string
 	Config       NetworkConfig

@@ -51,11 +51,11 @@ Example:
 				headersStr = os.Getenv("STELLAR_RPC_HEADERS")
 			}
 		}
-	if headersStr == "" {
-		if cfg, err := config.Load(); err == nil && cfg.RpcHeaders != "" {
-			headersStr = cfg.RpcHeaders
+		if headersStr == "" {
+			if cfg, err := config.Load(); err == nil && cfg.RpcHeaders != "" {
+				headersStr = cfg.RpcHeaders
+			}
 		}
-	}
 
 		// Get current working directory as default output
 		if genTestOutput == "" {

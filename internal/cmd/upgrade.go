@@ -61,11 +61,11 @@ Example:
 				headersStr = os.Getenv("STELLAR_RPC_HEADERS")
 			}
 		}
-	if headersStr == "" {
-		if cfg, err := config.Load(); err == nil && cfg.RpcHeaders != "" {
-			headersStr = cfg.RpcHeaders
+		if headersStr == "" {
+			if cfg, err := config.Load(); err == nil && cfg.RpcHeaders != "" {
+				headersStr = cfg.RpcHeaders
+			}
 		}
-	}
 
 		// 3. Fetch Transaction
 		fmt.Printf("Fetching transaction: %s from %s\n", txHash, networkFlag)

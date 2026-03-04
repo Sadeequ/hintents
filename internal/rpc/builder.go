@@ -28,7 +28,7 @@ type clientBuilder struct {
 	httpClient     *http.Client
 	requestTimeout time.Duration
 	// custom headers to inject on each request
-	headers         map[string]string
+	headers map[string]string
 }
 
 const defaultHTTPTimeout = 15 * time.Second
@@ -38,7 +38,7 @@ func newBuilder() *clientBuilder {
 		network:        Mainnet,
 		cacheEnabled:   true,
 		requestTimeout: defaultHTTPTimeout,
-		headers:         make(map[string]string),
+		headers:        make(map[string]string),
 	}
 }
 

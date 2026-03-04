@@ -25,16 +25,16 @@ import (
 // ─── flags specific to the compare command ────────────────────────────────────
 
 var (
-	cmpNetworkFlag   string
-	cmpRPCURLFlag    string
-	cmpRPCTokenFlag  string
+	cmpNetworkFlag    string
+	cmpRPCURLFlag     string
+	cmpRPCTokenFlag   string
 	cmpRPCHeadersFlag string
-	cmpLocalWasmFlag string
-	cmpArgsFlag      []string
-	cmpVerboseFlag   bool
-	cmpSimPathFlag   string
-	cmpThemeFlag     string
-	cmpProtoFlag     uint32
+	cmpLocalWasmFlag  string
+	cmpArgsFlag       []string
+	cmpVerboseFlag    bool
+	cmpSimPathFlag    string
+	cmpThemeFlag      string
+	cmpProtoFlag      uint32
 )
 
 // compareCmd implements `erst compare`.

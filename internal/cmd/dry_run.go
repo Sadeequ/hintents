@@ -16,9 +16,9 @@ import (
 )
 
 var (
-	dryRunNetworkFlag  string
-	dryRunRPCURLFlag   string
-	dryRunRPCTokenFlag string
+	dryRunNetworkFlag    string
+	dryRunRPCURLFlag     string
+	dryRunRPCTokenFlag   string
 	dryRunRPCHeadersFlag string
 )
 
